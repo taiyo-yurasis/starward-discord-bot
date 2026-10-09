@@ -12,6 +12,12 @@
 ## セットアップ
 
 1. リポジトリを取得し、プロジェクトディレクトリへ移動します。
+
+~~~sh
+git clone https://github.com/taiyo-yurasis/starward-discord-bot.git
+cd starward-discord-bot
+~~~
+
 2. 仮想環境を作り、有効化します。
 
 Windows PowerShell:
@@ -43,6 +49,8 @@ python -m pip install -r requirements.txt
 ~~~
 
 4. .env.example を .env にコピーし、各値を設定します。
+
+Windows PowerShellでは Copy-Item .env.example .env、cmdでは copy .env.example .env を実行してください。
 
 ~~~text
 DISCORD_BOT_TOKEN=Discord Bot token
