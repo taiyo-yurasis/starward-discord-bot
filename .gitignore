@@ -1,0 +1,13 @@
+# 秘密情報（絶対にコミットしない）
+.env
+
+# Pythonの自動生成キャッシュ・環境ファイル
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.DS_Store
+
+# 戦績DB(試合の生データが入るのでコミットしない)
+*.db
+*.db-journal
