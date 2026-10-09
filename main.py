@@ -280,7 +280,7 @@ def _bounded_text(value, limit=MAX_EMBED_FIELD_VALUE):
 
 def _safe_int(value, default=0):
     try:
-        return int(value)
+        return max(min(int(value), 10**15), -(10**15))
     except (TypeError, ValueError, OverflowError):
         return default
 
@@ -474,7 +474,10 @@ async def show_season_stats(ctx, season_input: str = None):
             char_stats_text = "\n".join(char_lines) or "このシーズンの使用データがありません。"
             char_stats_text = _bounded_text(char_stats_text)
             embed = discord.Embed(
-                title=f"📊 星の翼 シーズン戦績レポート (Season {target_season_code})",
+                title=_bounded_text(
+                    f"📊 星の翼 シーズン戦績レポート (Season {target_season_code})",
+                    256,
+                ),
                 color=discord.Color.gold(),
             )
             embed.add_field(
