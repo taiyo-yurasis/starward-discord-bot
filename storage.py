@@ -49,7 +49,8 @@ def init_db():
     }
     legacy_raw_columns = {"raw_list", "raw_detail"} & existing_columns
     if legacy_raw_columns:
-        _conn.execute("UPDATE battles SET raw_list=NULL, raw_detail=NULL")
+        assignments = ", ".join(f"{column}=NULL" for column in sorted(legacy_raw_columns))
+        _conn.execute(f"UPDATE battles SET {assignments}")
     _conn.commit()
 
 
