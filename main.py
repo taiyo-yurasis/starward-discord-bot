@@ -288,7 +288,9 @@ def _safe_int(value, default=0):
 def _safe_float(value, default=0.0):
     try:
         number = float(value)
-        return number if math.isfinite(number) else default
+        if not math.isfinite(number):
+            return default
+        return max(min(number, 1.0), 0.0)
     except (TypeError, ValueError, OverflowError):
         return default
 
@@ -433,8 +435,9 @@ async def show_season_stats(ctx, season_input: str = None):
                 t2_detail.get("ArenaScore", res_season_sum.get("ArenaScore", 0))
             )
             max_score = _safe_int(t2_detail.get("MaxScore"))
-            total_cnt = _safe_int(
-                t2_detail.get("TotalCnt", res_season_sum.get("TotalCnt", 0))
+            total_cnt = max(
+                _safe_int(t2_detail.get("TotalCnt", res_season_sum.get("TotalCnt", 0))),
+                0,
             )
             win_cnt = min(_safe_int(t2_detail.get("WinCnt")), total_cnt)
             loss_cnt = max(total_cnt - win_cnt, 0)
