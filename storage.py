@@ -33,7 +33,8 @@ CREATE TABLE IF NOT EXISTS battles (
     deaths            INTEGER,
     round_time        INTEGER,
     raw_list          TEXT,      -- 一覧APIの1件分(生JSON)
-    raw_detail        TEXT       -- 詳細APIのレスポンス全体(生JSON)
+    raw_detail        TEXT,      -- 詳細APIのレスポンス全体(生JSON)
+    notification_sent INTEGER NOT NULL DEFAULT 1
 );
 CREATE INDEX IF NOT EXISTS idx_battles_season ON battles(season_code);
 CREATE INDEX IF NOT EXISTS idx_battles_played ON battles(played_at);
@@ -44,9 +45,16 @@ _conn = None
 
 def init_db():
     global _conn
+    if _conn is not None:
+        _conn.close()
     _conn = sqlite3.connect(DB_PATH)
     _conn.row_factory = sqlite3.Row
     _conn.executescript(SCHEMA)
+    columns = {r[1] for r in _conn.execute("PRAGMA table_info(battles)")}
+    if "notification_sent" not in columns:
+        # Existing rows are historical records and must never trigger a mass notification.
+        _conn.execute("ALTER TABLE battles ADD COLUMN notification_sent INTEGER NOT NULL DEFAULT 1")
+    _conn.execute("CREATE INDEX IF NOT EXISTS idx_battles_notification ON battles(notification_sent, result)")
     _conn.commit()
 
 
@@ -55,14 +63,26 @@ def known_ids():
     return {r[0] for r in _conn.execute("SELECT battle_id FROM battles")}
 
 
-def insert_battle(row):
+def insert_battle(row, notification_pending=False):
     """1行保存する。新規に保存できたらTrue、既にあればFalse"""
     placeholders = ", ".join(f":{c}" for c in COLUMNS)
     cur = _conn.execute(
-        f"INSERT OR IGNORE INTO battles ({', '.join(COLUMNS)}) VALUES ({placeholders})",
-        row,
+        f"INSERT OR IGNORE INTO battles ({', '.join(COLUMNS)}, notification_sent) VALUES ({placeholders}, :notification_sent)",
+        {**{c: row.get(c) for c in COLUMNS}, "notification_sent": 0 if notification_pending and row.get("result") is not None else 1},
     )
     _conn.commit()
+    return cur.rowcount == 1
+
+
+def pending_notifications(limit=20):
+    return [dict(r) for r in _conn.execute(
+        "SELECT * FROM battles WHERE notification_sent=0 AND result IS NOT NULL ORDER BY saved_at, battle_id LIMIT ?", (limit,)
+    )]
+
+
+def mark_notification_sent(battle_id):
+    with _conn:
+        cur = _conn.execute("UPDATE battles SET notification_sent=1 WHERE battle_id=? AND notification_sent=0", (str(battle_id),))
     return cur.rowcount == 1
 
 
@@ -150,7 +170,9 @@ def extract_row(battle_id, detail_json, my_username, list_item=None, season_code
     レスポンスの形が想定外ならNone。
     """
     data = detail_json.get("data") if isinstance(detail_json, dict) else None
-    if not isinstance(data, dict):
+    if (not isinstance(data, dict)
+            or not isinstance(data.get("WinnerDetails"), list)
+            or not isinstance(data.get("LoserDetails"), list)):
         return None
 
     winners = data.get("WinnerDetails") or []
